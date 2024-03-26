@@ -6,9 +6,9 @@ export const typeOrmConfig = async (configService: ConfigService): Promise<TypeO
   type: configService.get<any>('DB_TYPE'),
   host: configService.get<string>('DB_HOST'),
   port: configService.get<number>('DB_PORT'),
+  synchronize: configService.get<number>('DB_SYNCHRONIZE')==1,
   username: configService.get<string>('DB_USERNAME'),
   password: configService.get<string>('DB_PASSWORD'),
   database: configService.get<string>('DB_DATABASE'),
-  entities: [join(__dirname, '**', '*.entity.{ts,js}')],
-  // synchronize: true,
+  entities: [join(__dirname, '**', '*.entity.{ts,js}')], 
 });
