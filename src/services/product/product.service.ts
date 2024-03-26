@@ -10,14 +10,17 @@ import { TechnicalInfo } from '@Entities/technical_info/technical_info.entity';
 import { Details } from '@Entities/details/details.entity';
 import { GeneralInfos } from '@Entities/general_infos/general_infos.entity';
 import { CreateTechnicalInfoDto } from '@Entities/technical_info/dto/create-technical_info.dto';
-import { PriceEnum, PriceFilter } from '@Entities/product/filter/price.filter'; 
+import { PriceEnum, PriceFilter } from '@Entities/product/filter/price.filter';
+import { CategorieService } from '@Services/categorie/categorie.service';
+import { CreateProductVariantDto } from '@Entities/product/dto/create-productVariant.dto';
+import { ProductVariant } from '@Entities/product/productVariant.entity';
 
-type productWithoutImageCategorie = {
+type productFields = {
     name?: string;
 
     description?: string
 
-    color?: string;
+    colors?: string[];
 
     price?: number;
 
@@ -30,32 +33,47 @@ export class ProductService {
 
     constructor(
         @InjectRepository(Product) private readonly productRepository: Repository<Product>,
+        @InjectRepository(ProductVariant) private readonly productVariantRepository: Repository<ProductVariant>,
         @InjectRepository(TechnicalInfo) private readonly technicalInfoRepository: Repository<TechnicalInfo>,
         @InjectRepository(Details) private readonly detailsRepository: Repository<Details>,
         @InjectRepository(Image) private readonly imagesRepository: Repository<Image>,
         @InjectRepository(GeneralInfos) private readonly generalInfoRepository: Repository<GeneralInfos>,
-        private readonly assetService: AssetsService
+        private readonly assetService: AssetsService,
+        private readonly categoryService: CategorieService,
     ) { }
 
     findAll(offset: number, limit: number, price: string) {
-        let query = this.productRepository.createQueryBuilder('prod')
-            .leftJoinAndSelect('prod.images', 'images')
-            .orderBy('prod.createdAt', 'DESC');
-        query = this.applyPriceFilter<Product>(price, query)
-        return query.
-            skip(offset)
-            .take(limit)
-            .getMany();
+        // let query = this.productRepository.createQueryBuilder('prod')
+        //     .leftJoinAndSelect('prod.images', 'images')
+        //     .leftJoinAndSelect('prod.variants', 'variants')
+        //     .leftJoinAndSelect(
+        //         qb => qb
+        //           .select()
+        //           .from(ProductVariant, 'va')
+        //           .leftJoinAndSelect('va.images', 'images') ,
+        //         'prod.variants',
+        //         'prod.variants.parent = prod.product_id'
+        //       )
+        //     .leftJoinAndSelect('prod.categories', 'categories')
+        //     .orderBy('prod.createdAt', 'DESC');
+        // query = this.applyPriceFilter<Product>(price, query)
+        // return query.
+        //     skip(offset)
+        //     .take(limit)
+        //     .getMany();
 
-        // return this.productRepository.find(
-        //     {
-        //         where: {
-
-        //         },
-        //         skip: offset,
-        //         take: limit,
-        //         order: { createdAt: 'DESC' }
-        //     });
+        return this.productRepository.find(
+            {
+                relations: {
+                    images: true,
+                    variants: {
+                        images: true
+                    },
+                },
+                skip: offset,
+                take: limit,
+                order: { createdAt: 'DESC' }
+            });
     }
 
     applyPriceFilter<T extends ObjectLiteral>(price: string = '', querie: SelectQueryBuilder<T>) {
@@ -90,129 +108,123 @@ export class ProductService {
     }
 
     async create(body: CreateProductDto, files: Express.Multer.File[] = []) {
-        // console.log(body.images)
         const doublon = await this.productRepository.findOne({ where: { name: body.name.toLowerCase() } })
-        if (doublon)
-            throw new HttpException(`name "${body.name}" already taken`, HttpStatus.CONFLICT)
+        if (doublon) {
+            throw new HttpException(`product name \"${body.name}\" already taken`, HttpStatus.CONFLICT)
+        }
 
-        const images: Image[] = await this.preloadImages(files, body.images)
-        body.ficheTechnique = this.preloadTechnicalInfos(body.ficheTechnique)
-        console.log(images, body.ficheTechnique)
-
-        const fields: productWithoutImageCategorie = body
+        const images = await this.preloadImages(files)
+        const ficheTechnique = body.ficheTechnique ? this.preloadTechnicalInfos(body.ficheTechnique) : null;
+        const categories = await this.preloadCategoryByIds(body.categories)
+        console.log(categories)
+        const fields: productFields = body
         fields.name = fields.name?.toLocaleLowerCase()
-        let product = this.productRepository.create({
+
+        const product = this.productRepository.create({
+            ...fields,
+            images: body.images.map(name => images[name]),
+            categories,
+            ficheTechnique,
+        })
+        const mainProduct = await this.productRepository.save(product)
+        await Promise.all(body.variants.map(variant => {
+            const _images = variant.images.map(name => images[name])
+            return this.createVariant(variant, _images, product)
+        }))
+        return mainProduct
+    }
+
+    async createVariant(payload: CreateProductVariantDto, images: Image[] = [], parent: Product) {
+        const fields: productFields = payload
+        delete fields.name
+        const variant = this.productVariantRepository.create({
             ...fields,
             images,
-            ficheTechnique: body.ficheTechnique,
+            parent,
         })
-        await this.productRepository.save(product)
-        return this.findOne(product.product_id)
+        return this.productVariantRepository.save(variant)
     }
 
 
     async delete(product_id: string) {
-        const product = await this.findOne(product_id)
-        product.ficheTechnique && product.ficheTechnique.generalInfo && await this.generalInfoRepository.remove(product.ficheTechnique.generalInfo)
-        product.ficheTechnique && product.ficheTechnique.details && await this.detailsRepository.remove(product.ficheTechnique.details)
-        product.ficheTechnique && await this.technicalInfoRepository.remove(product.ficheTechnique)
-       return this.productRepository.remove(product)
+        // const product = await this.findOne(product_id)
+        // product.ficheTechnique && product.ficheTechnique.generalInfo && await this.generalInfoRepository.remove(product.ficheTechnique.generalInfo)
+        // product.ficheTechnique && product.ficheTechnique.details && await this.detailsRepository.remove(product.ficheTechnique.details)
+        // product.ficheTechnique && await this.technicalInfoRepository.remove(product.ficheTechnique)
+        // return this.productRepository.remove(product)
     }
 
     async findOne(product_id: string) {
-        const product = await this.productRepository.findOneBy({ product_id })
+        const product = await this.productRepository.findOne({
+            where: { product_id },
+            relations: {
+                images: true,
+                variants: {
+                    images: true
+                },
+            },
+        })
         if (!product) {
             throw new NotFoundException(`product #${product_id} not found`)
         }
         return product
     }
 
-    async update(product_id: string, body: UpdateProductDto, files: Express.Multer.File[] = []) {
-        this.findOne(product_id)
-        if (body.name) {
-            const doublon = await this.productRepository.findOne({ where: { name: body.name.toLowerCase() } })
-            if (doublon)
-                throw new HttpException(`name "${body.name}" already taken`, HttpStatus.CONFLICT)
-        }
+    // async update(product_id: string, body: UpdateProductDto, files: Express.Multer.File[] = []) {
+    // this.findOne(product_id)
+    // if (body.name) {
+    //     const doublon = await this.productRepository.findOne({ where: { name: body.name.toLowerCase() } })
+    //     if (doublon)
+    //         throw new HttpException(`name "${body.name}" already taken`, HttpStatus.CONFLICT)
+    // }
 
-        const images = await this.preloadImages(files, body.images)
-        body.ficheTechnique =
-            (body.ficheTechnique && !body.ficheTechnique.fiche_technique_id) ?
-                this.preloadTechnicalInfos(body.ficheTechnique)
-                : (
-                    (body.ficheTechnique && body.ficheTechnique.fiche_technique_id) ?
-                        await this.preloadTechnicalInfosWithId(body.ficheTechnique, body.ficheTechnique.fiche_technique_id)
-                        : body.ficheTechnique
-                );
+    // const images = await this.preloadImages(files, body.images)
+    // body.ficheTechnique =
+    //     (body.ficheTechnique && !body.ficheTechnique.fiche_technique_id) ?
+    //         this.preloadTechnicalInfos(body.ficheTechnique)
+    //         : (
+    //             (body.ficheTechnique && body.ficheTechnique.fiche_technique_id) ?
+    //                 await this.preloadTechnicalInfosWithId(body.ficheTechnique, body.ficheTechnique.fiche_technique_id)
+    //                 : body.ficheTechnique
+    //         );
 
-        const fields: productWithoutImageCategorie = body
-        const existingproduct = await this.productRepository.preload({
-            product_id,
-            ...fields,
-            ficheTechnique: body.ficheTechnique,
-            images
-        })
-        await this.productRepository.save(existingproduct!)
-        return this.findOne(product_id)
-    }
+    // const fields: productWithoutImageCategorie = body
+    // const existingproduct = await this.productRepository.preload({
+    //     product_id,
+    //     ...fields,
+    //     ficheTechnique: body.ficheTechnique,
+    //     images
+    // })
+    // await this.productRepository.save(existingproduct!)
+    // return this.findOne(product_id)
+    // }
 
     preloadTechnicalInfos(payload: CreateTechnicalInfoDto) {
-        if (payload) {
-            if (payload.details) {
-                payload.details = this.detailsRepository.create(payload.details)
-            }
-
-            if (payload.generalInfo) {
-                payload.generalInfo = this.generalInfoRepository.create(payload.generalInfo)
-            }
+        if (payload.details) {
+            payload.details = this.detailsRepository.create(payload.details)
         }
-        return payload
-    }
 
-    async preloadTechnicalInfosWithId(payload: CreateTechnicalInfoDto, id: string) {
-        const tmp = await this.technicalInfoRepository.findOneBy({ fiche_technique_id: id })
-        if (payload) {
-            if (payload.details) {
-                payload.details = this.detailsRepository.create({
-                    details_id: tmp?.details.details_id,
-                    ...payload.details
-                })
-            }
-
-            if (payload.generalInfo) {
-                payload.generalInfo = this.generalInfoRepository.create(
-                    {
-                        general_infos_id: tmp?.generalInfo.general_infos_id,
-                        ...payload.generalInfo
-                    })
-            }
+        if (payload.generalInfo) {
+            payload.generalInfo = this.generalInfoRepository.create(payload.generalInfo)
         }
-        return payload
+        return this.technicalInfoRepository.create(payload)
     }
 
-    private preloadImageById(image_id: string): Promise<Image> {
-        return this.assetService.findOne(image_id)
+    async preloadImages(files: Express.Multer.File[] = []) {
+        if (files.length === 0)
+            return {}
+
+        const record: Record<string, Image> = {}
+        const Images = await Promise.all(files.map(file => this.assetService.updload(file)),)
+        Images.forEach((image, index) => {
+            const name = files[index].originalname
+            record[name] = image
+        })
+        return record
     }
 
-    // async preloadImages(files: Express.Multer.File[] = [], imagesId: string[] | undefined = [],product_id?:string) {
-    //     let presentsImages:Image[]=[]
-    //     if(product_id && imagesId.length>0){
-    //         presentsImages = await this.imagesRepository.find({where:{products:{product_id:product_id}}})
-    //     }
-    //     return Promise.all(
-    //         [...files.map(file => this.assetService.updload(file)),
-    //         ...imagesId.map(id => this.preloadImageById(id)),
-    //         ...presentsImages
-    //         ])
-    // }
-    async preloadImages(files: Express.Multer.File[] = [], imagesId: string[] | undefined = []) {
-        console.log(imagesId + 'hh')
-        if (!imagesId)
-            return []
-        return Promise.all(
-            [...files.map(file => this.assetService.updload(file)),
-            ...imagesId.map(id => this.preloadImageById(id)),
-            ])
+    async preloadCategoryByIds(payload: string[] = []) {
+        return payload.length == 0 ? [] : await Promise.all(payload.map(id => this.categoryService.findOne(id)))
     }
 
 

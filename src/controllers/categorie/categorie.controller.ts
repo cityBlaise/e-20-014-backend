@@ -17,11 +17,11 @@ export class CategorieController {
         return await this.categorieService.findAll(offset, limit)
     }
 
-    @Get('search')
+    @Get('search') 
     async search(@Query('query') query: string="") { 
         return await this.categorieService.search(query)
     }
-
+ 
     @Get(':id')
     async findOne(@Param('id') category_id: string) {
         return await this.categorieService.findOne(category_id)
@@ -32,7 +32,7 @@ export class CategorieController {
     @UseInterceptors(FilesInterceptor('image',))
     async create(@UploadedFiles( new ValidateOptionalFilePipe())
      file:  Express.Multer.File[], @Body() body: CreateCategorieDto) {
-        console.log(file)
+        console.log(file,body)
         return (!file|| file.length==0) ?
             await this.categorieService.create(body) :
             await this.categorieService.createWithImage(body, file[0])

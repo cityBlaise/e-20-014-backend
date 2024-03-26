@@ -16,63 +16,26 @@ import { join } from 'path';
 import { TechnicalInfo } from '@Entities/technical_info/technical_info.entity';
 import { Details } from '@Entities/details/details.entity';
 import { GeneralInfos } from '@Entities/general_infos/general_infos.entity';
+import { ProductVariant } from '@Entities/product/productVariant.entity';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { typeOrmConfig } from './typeOrm.config';
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: 'mysql-e20-014-e-20-014.a.aivencloud.com',
-      port: 12752,
-      username: 'avnadmin',
-      charset:"utf8mb4",
-      password: 'AVNS_-GAwyiKXOsEDdeULzUs',
-      database: 'e-20-014', 
-      entities: [__dirname + "/**/*.entity{.ts,.js}"],   
-      synchronize: true,  
-    }), 
-    // TypeOrmModule.forRoot({
-    //   type: 'mysql',
-    //   host: 'gateway01.us-west-2.prod.aws.tidbcloud.com',
-    //   port: 4000,
-    //   username: '3k2fXCqFBjqCqQJ.root',
-    //   password: 'lroqBpimIN2aT2P3',
-    //   database: 'e-20-014', 
-    //   entities: [__dirname + "/**/*.entity{.ts,.js}"],  
-    //   ssl: {
-    //     minVersion: 'TLSv1.2',
-    //     rejectUnauthorized: true
-    //   },
-    //   synchronize: true,  
-      
-    // }),
-    // TypeOrmModule.forRoot({
-    //   type: 'mysql',
-    //   host: 'localhost',
-    //   port: 3306,
-    //   username: 'root',
-    //   password: ' ',
-    //   database: 'test',
-    //   entities: [__dirname + "/**/*.entity{.ts,.js}"], 
-    //   synchronize: true,
-      // dropSchema:true
-    // }),
-    // TypeOrmModule.forRoot({
-    //   type:'postgres',
-    //   host:'localhost',
-    //   port:5432,
-    //   username:'postgres',
-    //   password:'pass123',
-    //   database:'postgres',
-    //   synchronize:true,
-    // }),
-    TypeOrmModule.forFeature([Product,Image,Categorie,TechnicalInfo,Details,GeneralInfos]),
-    // TypeOrmModule.forFeature([Product,Image,Categorie,TechnicalInfo,Details,GeneralInfos]),
-    ServeStaticModule.forRoot({
-      // renderPath:'/images',
-      
-      rootPath: join(__dirname, '..', 'Uploads'),
-      exclude: ['/api/(.*)'],
+
+    ConfigModule.forRoot(),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: typeOrmConfig,
     }),
-    // MulterModule.register({dest:'./uploads'})
+ 
+ 
+    TypeOrmModule.forFeature([Product,Image,Categorie,TechnicalInfo,Details,GeneralInfos,ProductVariant]), 
+    ServeStaticModule.forRoot({ 
+      rootPath: join(__dirname, '..', 'Uploads'),
+      // exclude: ['/api/(.*)'],
+      serveRoot:'/images'
+    }), 
   ],
   controllers: [AppController, ProductController, AssetController, CategorieController,],
   providers: [AppService, ProductService, AssetsService, CategorieService],

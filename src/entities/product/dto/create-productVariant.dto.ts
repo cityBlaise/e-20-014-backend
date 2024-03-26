@@ -2,9 +2,12 @@ import { IsInt, IsNumber, IsOptional, IsPositive, IsString } from "class-validat
 
  
 export class CreateProductVariantDto {  
-  
+    constructor(data: Partial<CreateProductVariantDto>) {
+        Object.assign(this, data);
+    }
     @IsOptional()
-    color: string; 
+    @IsString({ each: true })
+    colors: string[];
 
     @IsNumber()
     price: number;
@@ -18,8 +21,9 @@ export class CreateProductVariantDto {
     @IsInt()
     @IsOptional()
     rating: number;  
- 
+    
     @IsString()
+    @IsOptional()
     parent: string;
 
     @IsString({each:true})

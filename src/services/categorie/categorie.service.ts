@@ -17,7 +17,7 @@ export class CategorieService {
     findAll(offset: number, limit: number) {
         return this.categorieRepository.find(
             {
-                order: { name: "ASC" },
+                order: { createdAt: "ASC" },
                 relations: { image: true },
                 skip: offset,
                 take: limit

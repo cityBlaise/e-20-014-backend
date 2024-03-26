@@ -10,13 +10,13 @@ export class Categorie {
     @Column({unique:true})
     name:string;
 
-    @Column()
+    @Column({default: () => "CURRENT_TIMESTAMP",nullable:false})
     createdAt: Date;
 
-    @BeforeInsert()
-    setDate() { 
-        this.createdAt = new Date()
-    }
+    // @BeforeInsert()
+    // setDate() { 
+    //     this.createdAt = new Date()
+    // }
 
     @ManyToOne(() => Image,{
         eager:true
@@ -29,6 +29,6 @@ export class Categorie {
     })
     products:Product[];
 
-    @UpdateDateColumn({ precision: null, type: 'timestamp', default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
+    @UpdateDateColumn({ precision: null,nullable:false, type: 'timestamp', default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
     updatedAt: Date;
 }

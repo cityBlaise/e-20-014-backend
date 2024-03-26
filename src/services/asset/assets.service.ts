@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { encode } from 'blurhash';
 import { randomUUID } from 'crypto';
 import { constants, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { unlink } from 'fs/promises';
 import { extname, join } from 'path'
 import * as sharp from 'sharp';
 import { Repository } from 'typeorm';
@@ -78,5 +79,14 @@ export class AssetsService {
             throw new NotFoundException(`image #${id} not found`)
         }
         return image
+    }
+
+    async delete(id: string) {
+        const image = await this.findOne(id)
+        return Promise.all([
+            unlink(join(__dirname, '../../../Uploads',id + '.webp') )
+            , this.imageRepository.remove(image)
+        ])
+        this.imageRepository.remove(image)
     }
 }

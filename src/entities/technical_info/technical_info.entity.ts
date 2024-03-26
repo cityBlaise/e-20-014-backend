@@ -8,13 +8,13 @@ export class TechnicalInfo {
     @PrimaryGeneratedColumn('uuid')
     fiche_technique_id:string;
 
-    @Column()
+    @Column({nullable:false,default: () => "CURRENT_TIMESTAMP"})
     createdAt: Date;
 
-    @BeforeInsert()
-    setDate() { 
-        this.createdAt = new Date()
-    }
+    // @BeforeInsert()
+    // setDate() { 
+    //     this.createdAt = new Date()
+    // }
 
     @UpdateDateColumn({ precision: null, type: 'timestamp', default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
     updatedAt: Date;

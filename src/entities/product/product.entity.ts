@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, UpdateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, ManyToMany, JoinTable, BeforeInsert, OneToMany, BeforeUpdate } from "typeorm";
+import { Column, CreateDateColumn, UpdateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, ManyToMany, JoinTable, BeforeInsert, OneToMany, BeforeUpdate, IsNull } from "typeorm";
 import { TechnicalInfo } from "@Entities/technical_info/technical_info.entity";
 import { Image } from "@Entities/image/image.entity"; 
 import { Categorie } from "@Entities/categorie/categorie.entity";
@@ -10,14 +10,14 @@ export class Product {
     @PrimaryGeneratedColumn('uuid')
     product_id: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true ,type:"longtext"})
     description: string
 
     @Column({unique:true})
     name: string;
 
-    @Column({ length: 10, nullable: true })
-    color: string;
+    @Column({type:"simple-array",nullable:true}) 
+    colors: string[];
 
     @Column({ precision: 3, default: 0 })
     price: number;
@@ -28,20 +28,17 @@ export class Product {
     @Column({ nullable: true })
     rating: number;
 
-    @Column()
+    @Column({default: () => "CURRENT_TIMESTAMP",nullable:false})
     createdAt: Date;
 
-    @BeforeInsert()
-    setDate() {
-        this.createdAt = new Date()
-    }
+     
 
     @BeforeUpdate()
     update() {
         this.updatedAt = new Date()
     }
 
-    @UpdateDateColumn({ precision: null, type: 'timestamp', default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
+    @UpdateDateColumn({ precision: null,nullable:false, type: 'timestamp', default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
     updatedAt: Date;
 
     @ManyToMany(() => Image, {
@@ -59,8 +56,8 @@ export class Product {
         onDelete:'CASCADE',
         eager:true
     })
-    @JoinColumn({name:"fiche_technique_id"})
-    ficheTechnique: TechnicalInfo;
+    @JoinColumn({name:"fiche_technique_id"}) 
+    ficheTechnique: TechnicalInfo|null;
 
     @ManyToMany(() => Categorie, (category) => category.products, {
         cascade: ['insert'],

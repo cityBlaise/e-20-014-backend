@@ -1,4 +1,4 @@
-import { Column, UpdateDateColumn, Entity, PrimaryGeneratedColumn, ManyToMany, JoinTable, BeforeInsert, ManyToOne, JoinColumn } from "typeorm";
+import { Column, UpdateDateColumn, Entity, PrimaryGeneratedColumn, ManyToMany, JoinTable, BeforeInsert, ManyToOne, JoinColumn, BeforeUpdate } from "typeorm";
 import { Image } from "@Entities/image/image.entity";
 import { Product } from "@Entities/product/product.entity";
 
@@ -8,8 +8,8 @@ export class ProductVariant {
     @PrimaryGeneratedColumn('uuid')
     product_variant_id: string;
  
-    @Column({ length: 10, nullable: true })
-    color: string;
+    @Column({type:"simple-array",nullable:true}) 
+    colors: string[];
 
     @Column({ precision: 3, default: 0 })
     price: number;
@@ -20,13 +20,19 @@ export class ProductVariant {
     @Column({ nullable: true })
     rating: number;
 
-    @Column()
+    @Column({nullable:false,default: () => "CURRENT_TIMESTAMP"})
     createdAt: Date;
 
-    @BeforeInsert()
-    setDate() { 
-        this.createdAt = new Date()
-    }
+    // @BeforeInsert()
+    // setDate() { 
+    //     this.createdAt = new Date()
+    //     this.updatedAt = new Date()
+    // }
+
+    // @BeforeUpdate()
+    // setUpdateAt(){
+    //     this.updatedAt = new Date()
+    // }
 
     @UpdateDateColumn({ precision: null, type: 'timestamp', default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
     updatedAt: Date;

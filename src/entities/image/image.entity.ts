@@ -12,13 +12,13 @@ export class Image {
     @Column({ length: 40 ,nullable:true})
     blurhash: string;
 
-    @Column()
+    @Column({nullable:false,default: () => "CURRENT_TIMESTAMP"})
     createdAt: Date;
 
-    @BeforeInsert()
-    setDate(){
-        this.createdAt = new Date()
-    }
+    // @BeforeInsert()
+    // setDate(){
+    //     this.createdAt = new Date()
+    // }
 
     @ManyToMany(()=>Product,)
     @JoinTable({ name: 'product_image' })
